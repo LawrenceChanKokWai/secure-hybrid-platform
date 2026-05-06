@@ -1,0 +1,48 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_db
+    username: auth_user
+    password: auth_password
+
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format-sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9094
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+info:
+  app:
+    name: auth-service
+    version: v1.0.0
+    description: Authentication service for Secure Hybrid Microservices Platform
+
+app:
+  jwt:
+    secret: "asefwInmr23pur23FDM#5lasjmfw"
+    access-token-expiration-minutes: 15
+    refresh-token-expiration-days: 7
