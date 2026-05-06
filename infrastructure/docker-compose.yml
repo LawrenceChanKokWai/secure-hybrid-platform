@@ -1,0 +1,160 @@
+
+services:
+  postgres-primary:
+    image: postgres:16
+    container_name: shp-postgres-primary
+    environment:
+      POSTGRES_DB: secure_hybrid_platform
+      POSTGRES_USER: shp_user
+      POSTGRES_PASSWORD: shp_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - shp_postgres_primary_data:/var/lib/postgresql/data
+      - ./postgres/primary-init.sh:/docker-entrypoint-initdb.d/primary-init.sh
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "hot_standby=on"
+      - "-c"
+      - "listen_addresses=*"
+      - "-c"
+      - "password_encryption=md5"
+    networks:
+      - shp-network
+    healthcheck:
+      test: [ "CMD-SHELL", "PGPASSWORD=shp_password pg_isready -U shp_user -d secure_hybrid_platform" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-replica:
+    image: postgres:16
+    container_name: shp-postgres-replica
+    environment:
+      PGPASSWORD: replicator_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - shp_postgres_replica_data:/var/lib/postgresql/data
+    depends_on:
+      - postgres-primary
+    command: >
+      bash -c "
+      until pg_isready -h postgres-primary -p 5432 -U shp_user; do
+        echo 'Waiting for primary database...';
+        sleep 2;
+      done;
+
+      if [ ! -s /var/lib/postgresql/data/PG_VERSION ]; then
+        echo 'Cloning primary database...';
+        rm -rf /var/lib/postgresql/data/*;
+        pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U replicator -Fp -Xs -P -R;
+        chown -R postgres:postgres /var/lib/postgresql/data;
+        chmod 700 /var/lib/postgresql/data;
+      fi;
+
+      echo 'Starting replica...';
+      exec gosu postgres postgres
+      "
+    networks:
+      - shp-network
+
+  postgres-archive:
+    image: postgres:16
+    container_name: shp-postgres-archive
+    environment:
+      POSTGRES_DB: archive_db
+      POSTGRES_USER: archive_user
+      POSTGRES_PASSWORD: archive_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - shp_postgres_archive_data:/var/lib/postgresql/data
+    networks:
+      - shp-network
+    healthcheck:
+      test: [ "CMD-SHELL", "PGPASSWORD=archive_password pg_isready -U archive_user -d archive_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: shp-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - shp_redis_data:/data
+    networks:
+      - shp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    container_name: shp-kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093,EXTERNAL://localhost:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    volumes:
+      - shp_kafka_data:/var/lib/kafka/data
+    networks:
+      - shp-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: shp-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: secure-hybrid-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      - shp-network
+
+volumes:
+  shp_postgres_primary_data:
+  shp_postgres_replica_data:
+  shp_postgres_archive_data:
+  shp_redis_data:
+  shp_kafka_data:
+
+networks:
+  shp-network:
+    driver: bridge

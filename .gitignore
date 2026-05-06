@@ -1,0 +1,32 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# Rust
+target/
+Cargo.lock
+
+# Docker / environment
+.env
+*.log
+
+# OS
+.DS_Store
+
+# Local files
+logs/
+tmp/
