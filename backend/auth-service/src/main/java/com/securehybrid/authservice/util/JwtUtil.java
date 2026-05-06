@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Getter
 @Component
@@ -41,6 +42,7 @@ public class JwtUtil {
         Instant expiry = now.plusSeconds(accessTokenExpirationMinutes * 60);
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(email)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
@@ -53,6 +55,7 @@ public class JwtUtil {
         Instant expiry = now.plusSeconds(refreshTokenExpirationDays * 24 * 60 * 60);
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(email)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))

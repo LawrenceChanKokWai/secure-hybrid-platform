@@ -1,6 +1,7 @@
 package com.securehybrid.authservice.controller;
 
 import com.securehybrid.authservice.dto.request.LoginRequest;
+import com.securehybrid.authservice.dto.request.RefreshTokenRequest;
 import com.securehybrid.authservice.dto.request.RegisterRequest;
 import com.securehybrid.authservice.dto.response.AuthResponse;
 import com.securehybrid.authservice.service.AuthService;
@@ -32,4 +33,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK)
                 .body(authService.login(request));
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(authService.refreshToken(request));
+    }
+
 }

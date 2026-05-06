@@ -1,6 +1,7 @@
 package com.securehybrid.authservice.service.impl;
 
 import com.securehybrid.authservice.dto.request.LoginRequest;
+import com.securehybrid.authservice.dto.request.RefreshTokenRequest;
 import com.securehybrid.authservice.dto.request.RegisterRequest;
 import com.securehybrid.authservice.dto.response.AuthResponse;
 import com.securehybrid.authservice.entity.CredentialEntity;
@@ -8,6 +9,7 @@ import com.securehybrid.authservice.entity.RefreshTokenEntity;
 import com.securehybrid.authservice.entity.RoleEntity;
 import com.securehybrid.authservice.entity.UserEntity;
 import com.securehybrid.authservice.exception.AuthenticationFailedException;
+import com.securehybrid.authservice.exception.InvalidTokenException;
 import com.securehybrid.authservice.exception.ResourceAlreadyExistsException;
 import com.securehybrid.authservice.repository.RefreshTokenRepository;
 import com.securehybrid.authservice.repository.RoleRepository;
@@ -89,6 +91,32 @@ public class AuthServiceImpl implements AuthService {
         saveRefreshToken(user, refreshToken);
 
         return buildAuthResponse(accessToken, refreshToken);
+    }
+
+    @Override
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        RefreshTokenEntity existingToken = refreshTokenRepository
+                .findByTokenAndRevokedFalseAndDeletedFalse(request.getRefreshToken())
+                .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
+
+        if(existingToken.getExpiresAt().isBefore(Instant.now())) {
+            existingToken.setRevoked(true);
+            existingToken.setRevokedAt(Instant.now());
+            refreshTokenRepository.save(existingToken);
+
+            throw new InvalidTokenException("Refresh token has expired");
+        }
+
+        UserEntity user = existingToken.getUser();
+        String newAccessToken = jwtUtil.generateAccessToken(user.getEmail());
+        String newRefreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+
+        existingToken.setRevoked(true);
+        existingToken.setRevokedAt(Instant.now());
+        existingToken.setReplacedByToken(newRefreshToken);
+        refreshTokenRepository.save(existingToken);
+
+        return buildAuthResponse(newAccessToken, newRefreshToken);
     }
 
 

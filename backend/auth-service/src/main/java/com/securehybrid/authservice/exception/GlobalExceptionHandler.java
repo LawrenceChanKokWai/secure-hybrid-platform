@@ -29,12 +29,21 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneric(Exception exception) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of(
                         "timestamp", Instant.now(),
                         "message", exception.getMessage()
                 ));
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<?> handleInvalidTokenException(InvalidTokenException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of(
+                        "timestamp", Instant.now(),
+                        "message", exception.getMessage()));
     }
 
 }
