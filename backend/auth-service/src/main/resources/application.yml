@@ -43,6 +43,6 @@ info:
 
 app:
   jwt:
-    secret: "asefwInmr23pur23FDM#5lasjmfw"
+    secret: "asefw-Inmr23p-ur23FDM#5-las09876-54-3210AB-REQNj-mfw"
     access-token-expiration-minutes: 15
     refresh-token-expiration-days: 7
